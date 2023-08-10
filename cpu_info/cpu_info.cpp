@@ -9,9 +9,9 @@
 namespace vtools
 {
 
-void TryParseField(uint32_t& field, const std::string& line, const std::regex& re, std::smatch& match) {
+void TryParseField(uint32_t& field, const std::string& line, const std::regex& re, std::smatch& match, int base = 10) {
     if (std::regex_match(line, match, re) && match.size() == 2) {
-        field = std::stoul(match[1]);
+        field = std::stoul(match[1], nullptr, base);
     }
 }
 
@@ -54,6 +54,7 @@ std::vector<CpuInfo> GetCpuInfo() {
     CpuInfo cpu_info = {};
 
     std::string re_uint = "\\s*:\\s*(\\d*).*";
+    std::string re_uint_0x = "\\s*:\\s*(0x[\\da-fA-F]*).*";
     std::string re_int = "\\s*:\\s*(-?\\d*).*";
     std::string re_float = "\\s*:\\s*(\\d*\\.\\d*).*";
     std::string re_str = "\\s*:\\s*(.*)";
@@ -64,7 +65,7 @@ std::vector<CpuInfo> GetCpuInfo() {
     std::regex re_model("model" + re_uint);
     std::regex re_model_name("model name" + re_str);
     std::regex re_stepping("stepping" + re_int);
-    std::regex re_microcode("microcode" + re_uint);
+    std::regex re_microcode("microcode" + re_uint_0x);
     std::regex re_cpu_mhz("cpu MHz" + re_float);
     std::regex re_cache_size_kb("cache size" + re_uint);
     std::regex re_physical_id("physical id" + re_int);
@@ -81,7 +82,7 @@ std::vector<CpuInfo> GetCpuInfo() {
     std::regex re_clflush_size("clflush size" + re_uint);
     std::regex re_cache_alignment("cache_alignment" + re_int);
 
-    std::regex re_address_sizes("physical_address_bits\\s*:\\s* (\\d*) bits physical, (\\d*) bits virtual.*");
+    std::regex re_address_sizes("address sizes\\s*:\\s* (\\d*) bits physical, (\\d*) bits virtual.*");
 
     std::smatch match;
 
@@ -99,7 +100,7 @@ std::vector<CpuInfo> GetCpuInfo() {
         TryParseField(cpu_info.model, line, re_model, match);
         TryParseField(cpu_info.model_name, line, re_model_name, match);
         TryParseField(cpu_info.stepping, line, re_stepping, match);
-        TryParseField(cpu_info.microcode, line, re_microcode, match);
+        TryParseField(cpu_info.microcode, line, re_microcode, match, 16);
         TryParseField(cpu_info.cpu_mhz, line, re_cpu_mhz, match);
         TryParseField(cpu_info.cache_size_kb, line, re_cache_size_kb, match);
         TryParseField(cpu_info.physical_id, line, re_physical_id, match);
