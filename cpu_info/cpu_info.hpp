@@ -30,7 +30,7 @@ struct CpuInfo {
     std::vector<std::string> bugs;
 
     float bogomips = -1;
-    int32_t tlb_size = -1;
+    int32_t tlb_size_4k_pages = -1;
     uint32_t clflush_size = -1;
     int32_t cache_alignment = -1;
     uint32_t physical_address_bits = -1;

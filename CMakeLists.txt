@@ -11,4 +11,5 @@ include_directories(.)
 
 ### SUBDIRS ###
 add_subdirectory(cpu_info)
+add_subdirectory(strings)
 add_subdirectory(time)

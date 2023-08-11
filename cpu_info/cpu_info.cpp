@@ -1,45 +1,37 @@
 #include "cpu_info.hpp"
 
-#include <regex>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
+#include <functional>
+#include <cassert>
 
-#include <iostream>
+#include <strings/parser.hpp>
 
 namespace vtools
 {
 
-void TryParseField(uint32_t& field, const std::string& line, const std::regex& re, std::smatch& match, int base = 10) {
-    if (std::regex_match(line, match, re) && match.size() == 2) {
-        field = std::stoul(match[1], nullptr, base);
-    }
+void ParseField(uint32_t& field, std::string_view value, int base = 10) {
+    field = std::stoul(std::string(value), nullptr, base);
 }
 
-void TryParseField(int32_t& field, const std::string& line, const std::regex& re, std::smatch& match) {
-    if (std::regex_match(line, match, re) && match.size() == 2) {
-        field = std::stoi(match[1]);
-    }
+void ParseField(int32_t& field, std::string_view value) {
+    field = std::stoi(std::string(value));
 }
 
-void TryParseField(float& field, const std::string& line, const std::regex& re, std::smatch& match) {
-    if (std::regex_match(line, match, re) && match.size() == 2) {
-        field = std::stof(match[1]);
-    }
+void ParseField(float& field, std::string_view value) {
+    field = std::stof(std::string(value));
 }
 
-void TryParseField(std::string& field, const std::string& line, const std::regex& re, std::smatch& match) {
-    if (std::regex_match(line, match, re) && match.size() == 2) {
-        field = match[1];
-    }
+void ParseField(std::string& field, std::string_view value) {
+    field = std::string(value);
 }
 
-void TryParseField(std::vector<std::string>& field, const std::string& line, const std::regex& re, std::smatch& match) {
-    if (std::regex_match(line, match, re) && match.size() == 2) {
-        std::string flag;
-        std::stringstream flags(match[1]);
-        while (std::getline(flags, flag, ' ')) {
-            field.push_back(flag);
-        }
+void ParseField(std::vector<std::string>& field, std::string_view value) {
+    std::string flag;
+    std::stringstream flags((std::string(value)));
+    while (std::getline(flags, flag, ' ')) {
+        field.push_back(flag);
     }
 }
 
@@ -51,41 +43,40 @@ std::vector<CpuInfo> GetCpuInfo() {
         throw std::runtime_error("Can not open cpuinfo\n");
     }
 
+    std::unordered_map<std::string, std::function<void(CpuInfo&, std::string_view)>> parsers;
+    parsers["processor"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.processor, value); };
+    parsers["vendor_id"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.vendor_id, value); };
+    parsers["cpu family"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.cpu_family, value); };
+    parsers["model"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.model, value); };
+
+    parsers["model name"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.model_name, value); };
+    parsers["stepping"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.stepping, value); };
+    parsers["microcode"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.microcode, value, 16); };
+    parsers["cpu MHz"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.cpu_mhz, value); };
+    parsers["cache size"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.cache_size_kb, value); };
+    parsers["physical id"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.physical_id, value); };
+    parsers["siblings"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.siblings, value); };
+    parsers["core id"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.core_id, value); };
+    parsers["cpu cores"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.cpu_cores, value); };
+    parsers["apicid"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.apicid, value); };
+    parsers["initial apicid"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.initial_apicid, value); };
+    parsers["cpuid level"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.cpuid_level, value); };
+    parsers["flags"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.flags, value); };
+    parsers["bugs"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.bugs, value); };
+    parsers["bogomips"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.bogomips, value); };
+    parsers["TLB size"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.tlb_size_4k_pages, value); };
+    parsers["clflush size"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.clflush_size, value); };
+    parsers["cache_alignment"] = [](CpuInfo& ci, std::string_view value){ ParseField(ci.cache_alignment, value); };
+
+    parsers["address sizes"] = [](CpuInfo& ci, std::string_view value){
+        StringParser parser(value);
+        ci.physical_address_bits = parser.ReadUint();
+        bool skipped = parser.Skip(" bits physical, ");
+        assert(skipped);
+        ci.virtual_address_bits = parser.ReadUint();
+    };
+
     CpuInfo cpu_info = {};
-
-    std::string re_uint = "\\s*:\\s*(\\d*).*";
-    std::string re_uint_0x = "\\s*:\\s*(0x[\\da-fA-F]*).*";
-    std::string re_int = "\\s*:\\s*(-?\\d*).*";
-    std::string re_float = "\\s*:\\s*(\\d*\\.\\d*).*";
-    std::string re_str = "\\s*:\\s*(.*)";
-
-    std::regex re_processor("processor" + re_uint);
-    std::regex re_vendor_id("vendor_id" + re_str);
-    std::regex re_cpu_family("cpu family" + re_int);
-    std::regex re_model("model" + re_uint);
-    std::regex re_model_name("model name" + re_str);
-    std::regex re_stepping("stepping" + re_int);
-    std::regex re_microcode("microcode" + re_uint_0x);
-    std::regex re_cpu_mhz("cpu MHz" + re_float);
-    std::regex re_cache_size_kb("cache size" + re_uint);
-    std::regex re_physical_id("physical id" + re_int);
-    std::regex re_siblings("siblings" + re_int);
-    std::regex re_core_id("core id" + re_int);
-    std::regex re_cpu_cores("cpu cores" + re_int);
-    std::regex re_apicid("apicid" + re_int);
-    std::regex re_initial_apicid("initial apicid" + re_int);
-    std::regex re_cpuid_level("cpuid level" + re_int);
-    std::regex re_flags("flags" + re_str);
-    std::regex re_bugs("bugs" + re_str);
-    std::regex re_bogomips("bogomips" + re_float);
-    std::regex re_tlb_size("TLB size" + re_int);
-    std::regex re_clflush_size("clflush size" + re_uint);
-    std::regex re_cache_alignment("cache_alignment" + re_int);
-
-    std::regex re_address_sizes("address sizes\\s*:\\s* (\\d*) bits physical, (\\d*) bits virtual.*");
-
-    std::smatch match;
-
     std::string line;
     while (std::getline(ifs, line)) {
         if (line.size() == 0) {
@@ -94,32 +85,15 @@ std::vector<CpuInfo> GetCpuInfo() {
             continue;
         }
 
-        TryParseField(cpu_info.processor, line, re_processor, match);
-        TryParseField(cpu_info.vendor_id, line, re_vendor_id, match);
-        TryParseField(cpu_info.cpu_family, line, re_cpu_family, match);
-        TryParseField(cpu_info.model, line, re_model, match);
-        TryParseField(cpu_info.model_name, line, re_model_name, match);
-        TryParseField(cpu_info.stepping, line, re_stepping, match);
-        TryParseField(cpu_info.microcode, line, re_microcode, match, 16);
-        TryParseField(cpu_info.cpu_mhz, line, re_cpu_mhz, match);
-        TryParseField(cpu_info.cache_size_kb, line, re_cache_size_kb, match);
-        TryParseField(cpu_info.physical_id, line, re_physical_id, match);
-        TryParseField(cpu_info.siblings, line, re_siblings, match);
-        TryParseField(cpu_info.core_id, line, re_core_id, match);
-        TryParseField(cpu_info.cpu_cores, line, re_cpu_cores, match);
-        TryParseField(cpu_info.apicid, line, re_apicid, match);
-        TryParseField(cpu_info.initial_apicid, line, re_initial_apicid, match);
-        TryParseField(cpu_info.cpuid_level, line, re_cpuid_level, match);
-        TryParseField(cpu_info.flags, line, re_flags, match);
-        TryParseField(cpu_info.bugs, line, re_bugs, match);
-        TryParseField(cpu_info.bogomips, line, re_bogomips, match);
-        TryParseField(cpu_info.tlb_size, line, re_tlb_size, match);
-        TryParseField(cpu_info.clflush_size, line, re_clflush_size, match);
-        TryParseField(cpu_info.cache_alignment, line, re_cache_alignment, match);
+        StringParser sp(line);
+        std::string key = std::string(sp.Find('\t'));
+        sp.Find(' ');
+        sp.Next();
+        std::string_view value = sp.Find('\0');
 
-        if (std::regex_match(line, match, re_address_sizes) && match.size() == 3) {
-            cpu_info.physical_address_bits = std::stoul(match[1]);
-            cpu_info.virtual_address_bits = std::stoul(match[2]);
+        auto it = parsers.find(key);
+        if (it != parsers.end()) {
+            it->second(cpu_info, value);
         }
     }
 
