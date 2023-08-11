@@ -128,9 +128,3 @@ std::vector<CpuInfo> GetCpuInfo() {
 
 
 } // namespace vtools
-
-
-int main() {
-    vtools::GetCpuInfo();
-    return 0;
-}

@@ -1,5 +1,4 @@
 .vscode
 
+build
 cpu_info/cpufeatures.h
-
-exe

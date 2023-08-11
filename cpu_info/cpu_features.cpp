@@ -1,15 +1,8 @@
-#include <fstream>
-#include <iostream>
-#include <regex>
 #include <unordered_set>
 
 #include "cpu_info.hpp"
 
 std::unordered_set<std::string> KNOWN_CPU_FEATURES = {
-    "avx",
-    "avx2",
+#define CPU_FEATURE_DEF(x) #x,
+#include "cpu_features.def"
 };
-
-int main() {
-    vtools::GetCpuInfo();
-}
