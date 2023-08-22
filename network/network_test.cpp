@@ -24,8 +24,6 @@ int main() {
 
     std::string response_headers =
         "HTTP/1.0 200 OK\r\n"
-        // Server: BaseHTTP/0.6 Python/3.10.12
-        // Date: Tue, 22 Aug 2023 00:33:04 GMT
         "Content-type: text/html\r\n"
         "\r\n"
     ;
@@ -37,7 +35,7 @@ int main() {
     while (std::getline(ss, word, ' ')) {
         client.SendAll(word.data(), word.size());
         client.SendAll(&space, 1);
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     client.Reset();
     return 0;

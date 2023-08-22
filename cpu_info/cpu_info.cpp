@@ -71,7 +71,7 @@ std::vector<CpuInfo> GetCpuInfo() {
     parsers["address sizes"] = [](CpuInfo& ci, std::string_view value){
         StringParser parser(value);
         ci.physical_address_bits = parser.ReadUint();
-        bool skipped = parser.Skip(" bits physical, ");
+        bool skipped = parser.SkipStr(" bits physical, ");
         assert(skipped);
         ci.virtual_address_bits = parser.ReadUint();
     };
