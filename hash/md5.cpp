@@ -40,27 +40,26 @@ uint32_t K[64] = {
 
 uint32_t rotate_left(uint32_t x, uint32_t shift)
 {
-    return (x << shift) | (x >> (sizeof(x) - shift));
+    return (x << shift) | (x >> (sizeof(x) * 8 - shift));
 }
 
 } // namespace
 
 
 void Md5::Init() {
-    a0 = 0x67452301;
-    b0 = 0xefcdab89;
-    c0 = 0x98badcfe;
-    d0 = 0x10325476;
+    state.a0 = 0x67452301;
+    state.b0 = 0xefcdab89;
+    state.c0 = 0x98badcfe;
+    state.d0 = 0x10325476;
     block_vacant = sizeof(block);
     total_size = 0;
 }
 
 void Md5::ProcessBlock() {
-    assert(block_vacant == 0);
-    uint32_t A = a0;
-    uint32_t B = b0;
-    uint32_t C = c0;
-    uint32_t D = d0;
+    uint32_t A = state.a0;
+    uint32_t B = state.b0;
+    uint32_t C = state.c0;
+    uint32_t D = state.d0;
 
     for (uint8_t i = 0; i < 64; i++) {
         uint32_t F;
@@ -85,15 +84,16 @@ void Md5::ProcessBlock() {
         B = B + rotate_left(F, shifts[i]);
     }
 
-    a0 += A;
-    b0 += B;
-    c0 += C;
-    d0 += D;
+    state.a0 += A;
+    state.b0 += B;
+    state.c0 += C;
+    state.d0 += D;
 
     block_vacant = sizeof(block);
 }
 
 void Md5::Update(const void* data_as_void_ptr, size_t size) {
+    total_size += size;
     const uint8_t* data = static_cast<const uint8_t*>(data_as_void_ptr);
     uint8_t* block_bytes = reinterpret_cast<uint8_t*>(block);
 
@@ -110,8 +110,6 @@ void Md5::Update(const void* data_as_void_ptr, size_t size) {
         memcpy(block_bytes + sizeof(block) - block_vacant, data, size);
         block_vacant -= size;
     }
-
-    total_size += size;
 }
 
 void Md5::Finish() {
@@ -141,6 +139,14 @@ void Md5::Finish() {
     }
 }
 
+std::string CalcMd5(const void* data, size_t size) {
+    Md5 md5;
+    md5.Init();
+    md5.Update(data, size);
+    md5.Finish();
+    return HexDigest(&md5.state, sizeof(md5.state));
+}
+
 
 void HexDigest(char* dest, const void* src_as_void_ptr, size_t src_size) {
     const uint8_t* src = static_cast<const uint8_t*>(src_as_void_ptr);
@@ -148,7 +154,7 @@ void HexDigest(char* dest, const void* src_as_void_ptr, size_t src_size) {
     for (size_t dest_idx = 0; dest_idx < src_size * 2; dest_idx++) {
         size_t src_idx = dest_idx / 2;
         uint8_t num = src[src_idx];
-        num = src_idx % 2 ? num & 0xF : num >> 4;
+        num = dest_idx % 2 ? num & 0xF : num >> 4;
         dest[dest_idx] = num < 10 ? ('0' + num) : ('a' + num - 10);
     }
 }

@@ -35,5 +35,7 @@ int main(int argc, char* argv[]) {
         data = argv[2];
     }
 
+    std::string hash = vtools::CalcMd5(data.data(), data.size());
+    std::cout << "Hash: " << hash << "\n";
     return 0;
 }
