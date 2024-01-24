@@ -12,7 +12,7 @@ namespace vtools
 namespace
 {
 
-uint8_t shifts[64] = {
+uint8_t s[64] = {
     7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
     5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,
     4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,
@@ -38,7 +38,7 @@ uint32_t K[64] = {
     0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
 };
 
-uint32_t rotate_left(uint32_t x, uint32_t shift)
+uint32_t roll_left(uint32_t x, uint32_t shift)
 {
     return (x << shift) | (x >> (sizeof(x) * 8 - shift));
 }
@@ -81,7 +81,7 @@ void Md5::ProcessBlock() {
         A = D;
         D = C;
         C = B;
-        B = B + rotate_left(F, shifts[i]);
+        B += roll_left(F, s[i]);
     }
 
     state.a0 += A;
@@ -93,10 +93,10 @@ void Md5::ProcessBlock() {
 }
 
 void Md5::Update(const void* data_as_void_ptr, size_t size) {
-    total_size += size;
     const uint8_t* data = static_cast<const uint8_t*>(data_as_void_ptr);
     uint8_t* block_bytes = reinterpret_cast<uint8_t*>(block);
 
+    total_size += size;
     while (size >= block_vacant) {
         memcpy(block_bytes + sizeof(block) - block_vacant, data, block_vacant);
         data += block_vacant;
